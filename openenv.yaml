@@ -1,0 +1,101 @@
+name: repair-strategy-system-v2
+version: "2.0.0"
+description: >
+  A deterministic environment that simulates a distributed system with hidden state.
+  Agents must infer root causes from metrics and ambiguous logs.
+  Enforces cascading failures, delayed recovery, and action costs.
+
+environment:
+  module: env_v2
+  class: RepairEnvV2
+  seed: 42
+
+tasks:
+  - id: easy
+    description: "Database failure with clear symptoms. Single root cause."
+    max_steps: 10
+    optimal_steps: 3
+  - id: medium
+    description: "Cache failure and passive queue degradation. Misleading symptoms."
+    max_steps: 15
+    optimal_steps: 5
+  - id: hard
+    description: "Full cascading failure starting from DB. API and Queue both impacted."
+    max_steps: 20
+    optimal_steps: 7
+  - id: multi_root
+    description: "Independent failures in both DB and Queue. High complexity."
+    max_steps: 25
+    optimal_steps: 10
+
+action_space:
+  type: structured
+  model: models_v2.Action
+  fields:
+    action_type:
+      type: enum
+      values:
+        - restart_service
+        - scale_up
+        - clear_cache
+        - repair_database
+        - inspect_database
+        - inspect_api
+        - inspect_cache
+        - inspect_queue
+        - no_op
+    target:
+      type: enum
+      values:
+        - database
+        - api
+        - cache
+        - queue
+
+observation_space:
+  type: structured
+  model: models_v2.SymptomObservation
+  fields:
+    metrics:
+      type: dict
+      description: "Map of component name to its metrics (latency, error_rate, etc.)"
+    logs:
+      type: list
+      description: "List of highly ambiguous log entries from various components"
+    step_count:
+      type: int
+    max_steps:
+      type: int
+    inspections_remaining:
+      type: int
+      description: "Counter for free inspections (first 3 are free)"
+
+reward:
+  model: models_v2.Reward
+  range: [-5.0, 10.0]
+  description: >
+    Dense reward: +1.5 for root cause repair started, +0.5 for symptom improvement,
+    -1.0 for wrong component targeted, +5.0 terminal bonus, -0.2 step penalty.
+    Includes Action Costs (V3): e.g., -0.5 for DB/Scale, -0.2 for Restart/Cache.
+
+graders:
+  module: graders_v2
+  function: grade_v2
+
+baseline:
+  module: baseline_v2
+  function: run_task
+
+server:
+  host: "0.0.0.0"
+  port: 7860
+  endpoints:
+    - path: /tasks
+      method: GET
+    - path: /grader
+      method: POST
+    - path: /baseline
+      method: GET
+    - path: /diagnose
+      method: POST
+      description: "Submit a theoretical diagnosis for immediate feedback"
