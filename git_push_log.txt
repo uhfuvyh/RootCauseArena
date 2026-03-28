@@ -1,0 +1,38 @@
+﻿git : remote: [31m--------
+---------------------------
+---------------------------
+-----------[0m        
+At line:1 char:1
++ git push --force hf main 
+2>&1 | Out-File -FilePath 
+git_push_log.txt - ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~
+    + CategoryInfo         
+     : NotSpecified: (rem  
+  ote: [31m--...---[0m   
+         :String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+remote: [31mYou are not 
+authorized to push to this 
+repo.[0m        
+remote: [31mMake sure 
+that you are properly 
+logged in.[0m        
+remote: [31m--------------
+---------------------------
+---------------------------
+-----[0m        
+To https://huggingface.co/s
+paces/hbdjhdbduh/RootCauseA
+rena.git
+ ! [remote rejected] main 
+-> main (pre-receive hook 
+declined)
+error: failed to push some 
+refs to 'https://huggingfac
+e.co/spaces/hbdjhdbduh/Root
+CauseArena.git'
