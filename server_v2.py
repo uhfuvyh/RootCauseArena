@@ -241,8 +241,8 @@ async def session_start(req: SessionStartRequest):
         raise HTTPException(status_code=400, detail=f"Unknown task_id '{req.task_id}'")
 
     config = TASKS[req.task_id]
-    env = RepairEnvV2(config, seed=42)
-    obs = env.reset()
+    env = RepairEnvV2(seed=42)
+    obs = env.reset(task_config=config, task_id=req.task_id)
 
     sid = str(uuid.uuid4())
     _sessions[sid] = {"env": env, "total_reward": 0.0, "task_id": req.task_id}
