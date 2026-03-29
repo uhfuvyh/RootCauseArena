@@ -1,11 +1,13 @@
 ---
-title: Repair Strategy System V3
+title: RootCauseArena
 emoji: 🛠️
 colorFrom: blue
 colorTo: indigo
 sdk: docker
 app_port: 7860
+app_file: server_v2.py
 pinned: false
+license: mit
 ---
 
 # Repair Strategy System V3 (Hidden State & Reasoning)
