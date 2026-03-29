@@ -1,16 +1,20 @@
 """
-FastAPI server for Repair Strategy System V2.
+FastAPI server for Repair Strategy System V3.
+Serves the premium web dashboard + JSON API.
 """
 
 from __future__ import annotations
 
 import sys
 import os
+import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from fastapi import FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from env_v2 import RepairEnvV2
@@ -20,10 +24,18 @@ from graders_v2 import GRADERS
 import baseline_v2
 
 app = FastAPI(
-    title="Repair Strategy System V2",
-    description="Symptom-based OpenEnv environment for multi-component system repair (Hidden State + Root Cause Inference)",
-    version="2.0.0",
+    title="RootCauseArena — Repair Strategy System V3",
+    description="Interactive web dashboard + API for multi-component system repair with hidden state and root-cause inference.",
+    version="3.0.0",
 )
+
+# Serve static assets (CSS, JS)
+_static_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+if os.path.isdir(_static_dir):
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+
+# In-memory session store: session_id -> {env, total_reward}
+_sessions: Dict[str, Dict] = {}
 
 # ---------------------------------------------------------------------------
 # Request/Response schemas
@@ -172,6 +184,116 @@ async def run_baseline():
     )
 
 
+# ---------------------------------------------------------------------------
+# Dashboard root
+# ---------------------------------------------------------------------------
+
+@app.get("/")
+async def serve_dashboard():
+    """Serve the interactive web dashboard."""
+    index_path = os.path.join(_static_dir, "index.html")
+    if os.path.isfile(index_path):
+        return FileResponse(index_path, media_type="text/html")
+    return {"message": "RootCauseArena V3 API — static dashboard not found. Check the /static folder."}
+
+
+# ---------------------------------------------------------------------------
+# Interactive Session Endpoints
+# ---------------------------------------------------------------------------
+
+class SessionStartRequest(BaseModel):
+    task_id: str
+
+class SessionStepRequest(BaseModel):
+    session_id: str
+    action_type: str
+    target: str
+
+
+def _obs_to_dict(obs) -> Dict:
+    """Convert SymptomObservation to a JSON-serialisable dict."""
+    return {
+        "metrics": {
+            comp: {
+                "latency":    m.latency,
+                "error_rate": m.error_rate,
+                "queue_load": m.queue_load,
+                "cpu_usage":  m.cpu_usage,
+            }
+            for comp, m in obs.metrics.items()
+        },
+        "logs": [
+            {"timestamp": l.timestamp, "message": l.message, "severity": l.severity}
+            for l in obs.logs
+        ],
+        "step_count":           obs.step_count,
+        "max_steps":            obs.max_steps,
+        "inspections_remaining":obs.inspections_remaining,
+    }
+
+
+@app.post("/session/start")
+async def session_start(req: SessionStartRequest):
+    """
+    Start a new interactive episode. Returns a session_id and the initial observation.
+    """
+    if req.task_id not in TASKS:
+        raise HTTPException(status_code=400, detail=f"Unknown task_id '{req.task_id}'")
+
+    config = TASKS[req.task_id]
+    env = RepairEnvV2(config, seed=42)
+    obs = env.reset()
+
+    sid = str(uuid.uuid4())
+    _sessions[sid] = {"env": env, "total_reward": 0.0, "task_id": req.task_id}
+
+    return {
+        "session_id": sid,
+        "task_id": req.task_id,
+        "observation": _obs_to_dict(obs),
+    }
+
+
+@app.post("/session/step")
+async def session_step(req: SessionStepRequest):
+    """
+    Advance the session by one step. Returns new observation, reward, done, and success.
+    """
+    if req.session_id not in _sessions:
+        raise HTTPException(status_code=404, detail="Session not found. Start a new session first.")
+
+    session = _sessions[req.session_id]
+    env: RepairEnvV2 = session["env"]
+
+    # Validate action & target
+    try:
+        action_type = ActionType(req.action_type)
+        target      = ComponentTarget(req.target)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    from models_v2 import Action
+    action = Action(action_type=action_type, target=target)
+
+    obs, reward, done, info = env.step(action)
+    session["total_reward"] += reward
+
+    result = {
+        "observation": _obs_to_dict(obs),
+        "reward":      reward,
+        "done":        done,
+        "success":     info.get("success", False),
+        "info":        str(info.get("reason", "")),
+    }
+
+    if done:
+        # Clean up session
+        del _sessions[req.session_id]
+
+    return result
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server_v2:app", host="0.0.0.0", port=8001, reload=False)
+

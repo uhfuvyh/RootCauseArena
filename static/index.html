@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RootCauseArena — Repair Strategy System V3</title>
+  <meta name="description" content="An interactive simulation where an AI agent learns to diagnose and repair cascading system failures in real-time." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <!-- ── HEADER ───────────────────────────────────────────── -->
+  <header class="site-header">
+    <div class="header-brand">
+      <span class="brand-icon">⚡</span>
+      <div>
+        <h1 class="brand-title">RootCauseArena</h1>
+        <p class="brand-subtitle">Repair Strategy System V3 · Hidden State · Multi-Root</p>
+      </div>
+    </div>
+    <div class="header-status" id="server-status-badge">
+      <span class="status-dot"></span>
+      <span class="status-text">Connecting…</span>
+    </div>
+  </header>
+
+  <!-- ── MAIN LAYOUT ──────────────────────────────────────── -->
+  <main class="app-layout">
+
+    <!-- LEFT: Control Panel -->
+    <aside class="panel control-panel">
+      <section class="panel-section">
+        <h2 class="section-label">Mission Select</h2>
+        <div class="task-grid" id="task-grid">
+          <!-- Populated by JS -->
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h2 class="section-label">Episode Stats</h2>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span class="stat-value" id="stat-step">—</span>
+            <span class="stat-label">Step</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="stat-reward">—</span>
+            <span class="stat-label">Reward</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="stat-inspections">—</span>
+            <span class="stat-label">Inspections</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="stat-max">—</span>
+            <span class="stat-label">Max Steps</span>
+          </div>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-label">
+            <span>Episode Progress</span>
+            <span id="progress-pct">0%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-section">
+        <h2 class="section-label">Action Console</h2>
+        <div class="action-targets" id="action-targets">
+          <!-- Populated by JS -->
+        </div>
+        <div class="action-buttons" id="action-buttons">
+          <!-- Populated by JS -->
+        </div>
+        <button class="btn btn-secondary w-full mt" id="btn-no-op" disabled>
+          ⏸ Wait / No-op
+        </button>
+      </section>
+
+      <section class="panel-section">
+        <button class="btn btn-danger w-full" id="btn-run-baseline">
+          🤖 Run Baseline Agent
+        </button>
+      </section>
+    </aside>
+
+    <!-- CENTER: System Grid -->
+    <div class="center-column">
+      <div class="system-header">
+        <h2 class="section-label">System Health Grid</h2>
+        <div class="episode-status-badge" id="episode-badge">SELECT A MISSION</div>
+      </div>
+
+      <div class="components-grid" id="components-grid">
+        <!-- Component cards injected by JS -->
+        <div class="no-session-overlay" id="no-session-overlay">
+          <div class="no-session-content">
+            <div class="no-session-icon">🛠</div>
+            <p>Select a mission and press <strong>Start Episode</strong></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Baseline Results Table -->
+      <div class="baseline-section" id="baseline-section" style="display:none">
+        <h2 class="section-label">Baseline Agent Results</h2>
+        <table class="results-table" id="baseline-table">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Steps</th>
+              <th>Reward</th>
+              <th>Score</th>
+              <th>Efficiency</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="baseline-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- RIGHT: Log Console -->
+    <aside class="panel log-panel">
+      <div class="log-header">
+        <h2 class="section-label">Diagnostic Console</h2>
+        <button class="btn-icon" id="btn-clear-logs" title="Clear logs">✕</button>
+      </div>
+      <div class="log-console" id="log-console">
+        <div class="log-entry log-info">
+          <span class="log-ts">00:00</span>
+          <span class="log-msg">System initialised. Awaiting mission…</span>
+        </div>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- Start Episode Modal Overlay -->
+  <div class="modal-overlay" id="modal-overlay" style="display:none">
+    <div class="modal">
+      <h3 class="modal-title" id="modal-title">Starting Episode…</h3>
+      <p class="modal-body" id="modal-body">Initialising environment, please wait.</p>
+      <button class="btn btn-primary" id="modal-confirm">Begin Mission</button>
+      <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
