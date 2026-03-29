@@ -44,7 +44,9 @@ COMPONENTS = ["database", "api", "cache", "queue"]
 # ---------------------------------------------------------------------------
 
 class RepairEnvV2:
-    def __init__(self) -> None:
+    def __init__(self, seed: int = SEED) -> None:
+        """OpenEnv-compatible constructor. Accepts optional seed (default 42)."""
+        self._init_seed = seed
         self._task_config: Optional[Dict[str, Any]] = None
         
         # Hidden State
@@ -62,15 +64,31 @@ class RepairEnvV2:
         self._fixed_symptom_before_root: bool = False
         self._root_cause_fixed: bool = False
         
-        self._rng: random.Random = random.Random(SEED)
-        self._symptom_engine: SymptomEngine = SymptomEngine(SEED)
+        self._rng: random.Random = random.Random(seed)
+        self._symptom_engine: SymptomEngine = SymptomEngine(seed)
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def reset(self, task_config: Dict[str, Any], task_id: str) -> SymptomObservation:
-        """Reset the environment using a provided task configuration."""
+    def reset(
+        self,
+        task_config: Optional[Dict[str, Any]] = None,
+        task_id: str = "easy",
+    ) -> SymptomObservation:
+        """
+        Reset the environment.
+
+        OpenEnv calls this with no arguments → defaults to 'easy' task.
+        server_v2.py calls it with (task_config=config, task_id=task_id) → still works.
+        """
+        # If no task_config provided, load from tasks_v2 by task_id
+        if task_config is None:
+            from tasks_v2 import TASKS
+            if task_id not in TASKS:
+                task_id = "easy"
+            task_config = TASKS[task_id]
+
         self._task_config = copy.deepcopy(task_config)
         self._task_id = task_id
         
