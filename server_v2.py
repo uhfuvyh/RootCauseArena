@@ -82,6 +82,35 @@ class DiagnoseResponse(BaseModel):
 # Endpoints
 # ---------------------------------------------------------------------------
 
+# Global env for OpenEnv runner
+_global_env = RepairEnvV2(seed=42)
+
+@app.post("/reset")
+def reset():
+    """Standard OpenEnv reset endpoint."""
+    obs = _global_env.reset()
+    return {
+        "observation": _obs_to_dict(obs),
+        "info": {}
+    }
+
+from fastapi import Request
+@app.post("/step")
+async def step_standard(request: Request):
+    """Standard OpenEnv step endpoint."""
+    data = await request.json()
+    from models_v2 import Action, ActionType, ComponentTarget
+    action_type = data.get("action_type")
+    target = data.get("target")
+    act = Action(action_type=ActionType(action_type), target=ComponentTarget(target))
+    obs, reward, done, info = _global_env.step(act)
+    return {
+        "observation": _obs_to_dict(obs),
+        "reward": float(reward.value) if hasattr(reward, "value") else float(reward),
+        "done": done,
+        "info": info
+    }
+
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "repair-strategy-system-v2"}
