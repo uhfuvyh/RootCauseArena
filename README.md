@@ -5,6 +5,8 @@ colorFrom: blue
 colorTo: indigo
 sdk: docker
 app_port: 7860
+tags:
+  - openenv
 pinned: false
 license: mit
 ---
