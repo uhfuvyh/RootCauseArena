@@ -12,7 +12,7 @@ import uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -143,7 +143,7 @@ def state():
         return {"observation": {}, "info": {}}
 
 
-from fastapi import Request
+
 @app.post("/step")
 async def step_standard(request: Request):
     """Standard OpenEnv step endpoint."""
