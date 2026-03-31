@@ -324,5 +324,5 @@ async def session_step(req: SessionStepRequest):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server_v2:app", host="0.0.0.0", port=8001, reload=False)
+    uvicorn.run("server_v2:app", host="0.0.0.0", port=7860, reload=False)
 
