@@ -79,29 +79,69 @@ class DiagnoseResponse(BaseModel):
     actual_root_cause: str
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _obs_to_dict(obs) -> Dict:
+    """Convert SymptomObservation to a JSON-serialisable dict."""
+    return {
+        "metrics": {
+            comp: {
+                "latency":    m.latency,
+                "error_rate": m.error_rate,
+                "queue_load": m.queue_load,
+                "cpu_usage":  m.cpu_usage,
+            }
+            for comp, m in obs.metrics.items()
+        },
+        "logs": [
+            {"timestamp": l.timestamp, "message": l.message, "severity": l.severity}
+            for l in obs.logs
+        ],
+        "step_count":           obs.step_count,
+        "max_steps":            obs.max_steps,
+        "inspections_remaining":obs.inspections_remaining,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
 
-# Global env for OpenEnv runner
+# Global env for OpenEnv runner — default task: easy
 _global_env = RepairEnvV2(seed=42)
+_default_task_id = "easy"
+_global_env.reset(task_config=TASKS[_default_task_id], task_id=_default_task_id)
+
 
 @app.post("/reset")
-def reset():
-    """Standard OpenEnv reset endpoint."""
-    obs = _global_env.reset()
+async def reset(request: Request = None):
+    """Standard OpenEnv reset endpoint. Accepts optional task_id in JSON body."""
+    task_id = _default_task_id
+    if request is not None:
+        try:
+            body = await request.json()
+            task_id = body.get("task_id", _default_task_id)
+        except Exception:
+            pass
+    if task_id not in TASKS:
+        task_id = _default_task_id
+    obs = _global_env.reset(task_config=TASKS[task_id], task_id=task_id)
     return {
         "observation": _obs_to_dict(obs),
-        "info": {}
+        "info": {"task_id": task_id}
     }
+
 
 @app.get("/state")
 def state():
     """Standard OpenEnv state endpoint."""
-    obs = _global_env._generate_symptoms()
-    return {
-        "observation": _obs_to_dict(obs),
-        "info": {}
-    }
+    try:
+        obs = _global_env._generate_symptoms()
+        return {"observation": _obs_to_dict(obs), "info": {}}
+    except Exception:
+        return {"observation": {}, "info": {}}
+
 
 from fastapi import Request
 @app.post("/step")
@@ -119,6 +159,7 @@ async def step_standard(request: Request):
         "done": done,
         "info": info
     }
+
 
 @app.get("/health")
 async def health_check():
@@ -248,26 +289,7 @@ class SessionStepRequest(BaseModel):
     target: str
 
 
-def _obs_to_dict(obs) -> Dict:
-    """Convert SymptomObservation to a JSON-serialisable dict."""
-    return {
-        "metrics": {
-            comp: {
-                "latency":    m.latency,
-                "error_rate": m.error_rate,
-                "queue_load": m.queue_load,
-                "cpu_usage":  m.cpu_usage,
-            }
-            for comp, m in obs.metrics.items()
-        },
-        "logs": [
-            {"timestamp": l.timestamp, "message": l.message, "severity": l.severity}
-            for l in obs.logs
-        ],
-        "step_count":           obs.step_count,
-        "max_steps":            obs.max_steps,
-        "inspections_remaining":obs.inspections_remaining,
-    }
+# _obs_to_dict moved to top of Endpoints section above
 
 
 @app.post("/session/start")
