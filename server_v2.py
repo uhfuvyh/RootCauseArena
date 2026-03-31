@@ -94,6 +94,15 @@ def reset():
         "info": {}
     }
 
+@app.get("/state")
+def state():
+    """Standard OpenEnv state endpoint."""
+    obs = _global_env._generate_symptoms()
+    return {
+        "observation": _obs_to_dict(obs),
+        "info": {}
+    }
+
 from fastapi import Request
 @app.post("/step")
 async def step_standard(request: Request):

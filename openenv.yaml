@@ -99,3 +99,9 @@ server:
     - path: /diagnose
       method: POST
       description: "Submit a theoretical diagnosis for immediate feedback"
+    - path: /reset
+      method: POST
+    - path: /step
+      method: POST
+    - path: /state
+      method: GET

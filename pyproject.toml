@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repair-strategy-system-v2"
+version = "2.0.0"
+description = "A deterministic environment that simulates a distributed system with hidden state."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi==0.110.2",
+    "uvicorn==0.29.0",
+    "pydantic==2.7.1",
+    "aiofiles==23.2.1",
+    "python-multipart==0.0.9",
+    "openai>=1.0.0",
+    "openenv-core>=0.1.0"
+]
+
+[project.scripts]
+server = "server.app:main"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["repair_env_v2", "repair_env_v2.server"]
+package-dir = { "repair_env_v2" = ".", "repair_env_v2.server" = "server" }

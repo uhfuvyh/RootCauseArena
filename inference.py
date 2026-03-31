@@ -20,6 +20,8 @@ from __future__ import annotations
 import sys
 import os
 import argparse
+import json
+from openai import OpenAI
 
 # Fix Windows console encoding for non-ASCII characters
 if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
@@ -34,20 +36,31 @@ from tasks_v2 import TASKS
 
 
 # ---------------------------------------------------------------------------
-# Simple deterministic baseline agent (inspect root-cause area, then repair)
+# LLM Agent
 # ---------------------------------------------------------------------------
 
-def inspect_then_fix_agent(obs, task_config: dict, step: int) -> Action:
-    """
-    Minimal deterministic agent:
-    - Step 0: inspect the (first) suspected root cause component
-    - Step 1+: attempt repair on whichever component has the highest error_rate
-    """
+API_BASE_URL = os.environ.get("API_BASE_URL")
+HF_TOKEN = os.environ.get("HF_TOKEN")
+MODEL_NAME = os.environ.get("MODEL_NAME", "gpt-4o")
+
+client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN) if API_BASE_URL and HF_TOKEN else None
+
+SYSTEM_PROMPT = """You are an SRE agent debugging a distributed system. The system has 4 components: database, api, cache, queue.
+You will receive observations containing metrics and logs. 
+Your goal is to identify the root cause of the failures and repair it.
+Note: You can inspect components to get hints. Repairing a component usually takes 2 steps to take effect.
+Action types: restart_service, scale_up, clear_cache, repair_database, inspect_database, inspect_api, inspect_cache, inspect_queue, no_op
+Targets: database, api, cache, queue
+
+You must respond with a JSON object containing exactly two keys: "action_type" and "target".
+Example: {"action_type": "inspect_database", "target": "database"}
+"""
+
+def fallback_agent(obs, task_config: dict, step: int) -> Action:
+    """Minimal deterministic fallback agent when API keys are missing."""
     root_cause = task_config["root_cause"]
     if isinstance(root_cause, list):
         root_cause = root_cause[0]
-
-    # Step 0: inspect first
     if step == 0:
         inspect_map = {
             "database": ActionType.inspect_database,
@@ -55,12 +68,7 @@ def inspect_then_fix_agent(obs, task_config: dict, step: int) -> Action:
             "cache":    ActionType.inspect_cache,
             "queue":    ActionType.inspect_queue,
         }
-        return Action(
-            action_type=inspect_map.get(root_cause, ActionType.inspect_database),
-            target=ComponentTarget(root_cause),
-        )
-
-    # Step 1+: pick component with worst error_rate and try to fix it
+        return Action(action_type=inspect_map.get(root_cause, ActionType.inspect_database), target=ComponentTarget(root_cause))
     worst_comp = max(obs.metrics.items(), key=lambda kv: kv[1].error_rate)[0]
     repair_map = {
         "database": ActionType.repair_database,
@@ -68,10 +76,37 @@ def inspect_then_fix_agent(obs, task_config: dict, step: int) -> Action:
         "cache":    ActionType.clear_cache,
         "queue":    ActionType.restart_service,
     }
-    return Action(
-        action_type=repair_map.get(worst_comp, ActionType.restart_service),
-        target=ComponentTarget(worst_comp),
-    )
+    return Action(action_type=repair_map.get(worst_comp, ActionType.restart_service), target=ComponentTarget(worst_comp))
+
+def llm_agent(obs, task_config: dict, step: int) -> Action:
+    """Uses OpenAI client to infer the next action."""
+    if not client:
+        return fallback_agent(obs, task_config, step)
+
+    obs_dict = obs.model_dump() if hasattr(obs, 'model_dump') else obs
+    
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": f"Task description: {task_config.get('description')}\\nStep: {step}\\nObservation: {json.dumps(obs_dict)}"}
+    ]
+    
+    try:
+        completion = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+            temperature=0.0,
+            max_tokens=150,
+            response_format={"type": "json_object"}
+        )
+        response_text = completion.choices[0].message.content or "{}"
+        data = json.loads(response_text)
+        return Action(
+            action_type=ActionType(data.get("action_type", "no_op")),
+            target=ComponentTarget(data.get("target", "database"))
+        )
+    except Exception as exc:
+        print(f"Model request failed ({exc}). Using fallback action.")
+        return Action(action_type=ActionType.no_op, target=ComponentTarget.database)
 
 
 # ---------------------------------------------------------------------------
@@ -109,7 +144,7 @@ def run_inference(task_id: str = "easy", verbose: bool = True) -> dict:
         print(f"{'='*62}")
 
     while not done:
-        action = inspect_then_fix_agent(obs, config, step)
+        action = llm_agent(obs, config, step)
         obs, reward, done, info = env.step(action)
 
         if verbose:

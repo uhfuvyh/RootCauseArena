@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.txt
+!README.md
+git_info.txt
+inference_out.txt
+push_github.txt
+push_hf.txt
+stress_result.txt
+stress_test_out.txt
+seeds_20_hard.txt
